@@ -1,0 +1,135 @@
+#+TITLE: Script to install dependencies on a new EC2 instance.
+#+DESCRIPTION: This script installs LiteSpeed, Certbot, LSPHP and Composer, creates a directory for the project and clone the project repository and set it up for web serving.
+#+PROPERTY: header-args :tangle yes
+#+AUTHOR: Lalrinfela Pachuau
+#+DATE: Wed Sep 13 14:56:39 2023
+
+* Litespeed configuration from the terminal side:
+** First you need to enter root mode to avoid denial of permission in regards to modifying the files. And then, we update the system and install our required packages.
+
+#+BEGIN_SRC bash :tangle ec2-up-script.sh
+
+#!/bin/bash
+
+# Enter root mode
+sudo su
+
+# Installing OpenLiteSpeed, Certbot and LSPHP
+apt update
+echo "Adding LiteSpeed repository to apt.."
+wget -O - https://repo.litespeed.sh | sudo bash
+
+echo "Installing LiteSpeed, LSPHP and certbot.."
+apt update
+apt install openlitespeed certbot lsphp82 lsphp82-{common,curl,mysql}
+
+#+END_SRC
+
+
+** Create a new directory 'www' in the root directory of LiteSpeed and create a sub-directory for the project inside 'www' and cd into it:
+
+#+BEGIN_SRC bash :tangle ec2-up-script.sh
+
+# Creating www directory
+cd "/usr/local/lsws"
+mkdir "www"
+cd "www"
+echo "www directory created at $PWD"
+
+read -p "Enter the name of your project directory: " dir_name
+
+mkdir   "$dir_name"
+cd      "$dir_name"
+
+#+END_SRC
+
+** Clone the project into the newly created directory inside 'www':
+
+#+BEGIN_SRC bash :tangle ec2-up-script.sh
+
+read -p "Enter the URL of the project repository: " repo_url
+echo "Cloning the repository.. $repo_url"
+git clone "$repo_url" .
+echo "Repository cloned into $PWD"
+
+#+END_SRC
+
+** After successfully cloning the project, install composer in the project directory:
+
+#+BEGIN_SRC bash :tangle ec2-up-script.sh
+
+# Installing Composer
+echo "Installing Composer.."
+/usr/local/lsws/lsphp81/bin/php8.2 -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+/usr/local/lsws/lsphp81/bin/php8.2 composer-setup.php
+/usr/local/lsws/lsphp81/bin/php8.2 composer.phar install
+
+#+END_SRC
+
+** Generating keys, copying .env files, linking storage and giving permissions to storage folders:
+
+#+BEGIN_SRC bash :tangle ec2-up-script.sh
+
+# Copying the env example file
+cp .env.example .env
+
+# Generating key and linking storage
+/usr/local/lsws/lsphp81/bin/php8.1 artisan key:generate
+/usr/local/lsws/lsphp81/bin/php8.1 artisan storage:link
+
+# Set storage permission to ALL
+chmod -R 777 storage/
+systemctl enable lsws
+systemctl restart lsws
+
+# Set Admin password for LiteSpeed GUI Dashboard
+/usr/local/lsws/admin/misc/admpass.sh
+
+echo "OpenLiteSpeed server configurations has finished."
+echo "Don't forget to configure the .env file manually and set LiteSpeed dashboard admin password."
+echo "You can now start configuring the LiteSpeed dashboard on via the browser.."
+
+#+END_SRC
+
+** Modifying the .env files needs to be done manually for the time being since I cannot implement in the script for now.
+*** In this .env file, edit the section  where DB_HOST, DB_DATABASE, DB_USER and DB_PASSWORD and fill in your DB credentials.
+*** You can also input your S3 Bucket credentials, bucket name, region, etc.
+*** If you are using frontend framework and use Laravel sanctum for authentication, you need to include SANCTUM_STATEFUL_DOMAINS and specify your API endpoints.
+
+* Configuring LiteSpeed on the GUI dashboard:
+** In order to configure LiteSpeed from the dashboard, we need to open a port (7080) in the EC2 instance.
+** Only SSH port is open by default, so you may want to open port 80, 443 and 7080 for the instance.
+** After opening the ports, now you can enter the Litespeed Dashboard by entering https://<ip_addr_of_instance>:7080.
+** We have set the admin password for the Dashboard before, use that credentials to log into LiteSpeed Admin Dashbord.
+** After that, go to the Virtual Host tab and delete the Example virtualhost, then create a new one.
+** When creating a virtualhost file, you can refer to the following parameters:
+*** VH_Name: Whatever name you want.
+*** VH_Root: $SERVER_ROOT/www/$PROJECT_DIR
+*** Conf. File: $SERVER_ROOT/conf/vhosts/$VH_NAME/vhconf.conf
+*** Enable Scripts: Yes
+*** Restrained: Yes
+*** Document Root: $VH_ROOT/public
+*** Domain Name: enter IP address or actual domain name
+*** Enable GZIP compression: Yes
+*** Use server Index files: No
+*** Index files: index.php
+*** Auto index: No
+*** Rewrite: yes
+*** Autoload .htaccess: Yes
+*** Also you must enable the script handler to use the server level script (LSAPI) to run php82 script.
+
+** Create two listeners from the listeners tab and specify the ports for http and ssl, ports 80 and 443 respectively.
+** under the listeners, you can add a listener and add for each http and ssl listener, and also specify the domain name or IP address if ti does not have a domain name yet.
+** Finally, restart the LiteSpeed server and now you must be able to access your web app on http://<instance_ip_or_domain_name>.
+** To access your website via HTTPS protcol, buy a domain name and map your IP with the domain name in your DNS.
+** Then, you can generate SSL Certificate for your domain using Cerbot we installed earlier.
+** The general syntax of generating SSL Certificate using Certbot is:
+*** ~certbot certonly -w /absolte/path/to/your/project/directory -d mydomain.com~
+** In my case, this will be:
+*** ~cecrtbot certonly -w /usr/local/lsws/www/<project_dir_name>/public -d mydomain.com~
+** If you are unsure of what this command will do, then you can test run it by passing the `--dry-run` flag.
+** After successfully generating the SSL certificate, you must copy the path where the certificate is stored in the server. It will look something like this:
+*** ~/etc/letsencrypt/live/mydomain.com/privkey.pem~ AND ~/etc/letsencrypt/live/mydomain.com/fullchain.pem~
+** Copy the path (excluding the tilde '~') and paste it in the SSL tab of the SSL listener.
+** Paste the privkey.pem to the private key field and fullchain.pem file to the certificate field and also check the Chained Certificate box 'Yes'.
+** Reload the LiteSpeed Server and now you can access the website you served via https://mydomain.com

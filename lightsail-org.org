@@ -1,0 +1,174 @@
+#+TITLE: Script to install dependencies on a new Lightsail instance.
+#+DESCRIPTION: This script installs Apache2, PHP 8.2 and Composer, creating a directory for the project and clone the repository and set up Apache for web serving.
+#+PROPERTY: header-agrs :tangle yes
+#+AUTHOR: Lalrinfela Pachuau
+#+DATE: Wed Sep 13 15:00:21 2023
+
+* Update the system and install Apache2:
+** script:
+#+BEGIN_SRC bash :tangle ls-up-script.sh
+
+#!/bin/bash
+
+sudo apt update -y
+
+echo "Installing Apache2.."
+sudo apt install apache2 software-properties-common -y
+
+echo "Finished installing Apache2.."
+
+#+END_SRC
+
+
+* Check if PHP PPA exists in the apt repository and add it if it doesn't:
+** script:
+#+BEGIN_SRC bash :tangle ls-up-script.sh
+
+echo "Checking if PHP repository already exists in apt.."
+ppa_name="ondrej/php"
+
+# Check if the PPA is already added
+if grep -q "^deb .*$ppa_name" /etc/apt/sources.list /etc/apt/sources.list.d/*; then
+    echo "PPA $ppa_name is already added. Aborting..."
+else
+    # Add the PPA
+    echo "Adding PPA $ppa_name..."
+    sudo add-apt-repository "ppa:$ppa_name" -y
+fi
+
+echo "Updating the apt repository.."
+sudo apt update
+echo "Update is finished..!!"
+#+END_SRC
+
+* Now we can install php of any version (in my case, 8.2):
+** script:
+#+BEGIN_SRC bash :tangle ls-up-script.sh
+
+echo "Installing PHP 8.2 and its modules.."
+sudo apt install php8.2 php8.2-{curl,common,mysql,cli,gd,xml,mbstring,zip} php-json -y
+
+echo "Fetching Composer setup via curl.."
+curl -sS https://getcomposer.org/installer -o /tmp/composer-setup.php
+
+echo "Installing Composer.."
+sudo php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer
+
+echo "Finished installing PHP 8.2 and Composer.. Done!"
+
+#+END_SRC
+
+* Creating a directory to clone the project in the apache webroot:
+** script:
+#+BEGIN_SRC bash :tangle ls-up-script.sh
+
+#Creating a project directory under /var/www
+# Get the directory name from user input
+
+read -p "Enter the name of the project directory: " dir_name
+
+# Check if the directory already exists
+if [ -d "/var/www/$dir_name" ]; then
+    echo "Directory already exists. Aborting."
+    exit 1
+fi
+
+# Create the directory in /var/www/ as root user
+sudo mkdir -p "/var/www/$dir_name"
+
+# Change ownership of the directory to your user
+# sudo chown -R $USER:$USER "/var/www/$dir_name"
+
+# Change into the new directory
+cd "/var/www/$dir_name"
+
+
+#+END_SRC
+
+* Clone the project repository into the new directory you just created:
+** script:
+#+BEGIN_SRC bash :tangle ls-up-script.sh
+
+# Get the repository URL from user input
+read -p "Enter the URL of the project Git repository: " repo_url
+
+# Clone the repository
+git clone "$repo_url" .
+
+echo "Repository cloned into /var/www/$dir_name"
+
+composer install
+
+cp .env.example .env
+
+echo "Generating key in .env file.."
+php artisan key:generate
+
+echo "Linking storage.."
+php artisan storage:link
+
+echo "Giving permissions to the storage folder.."
+chmod -R 777 storage/
+
+#+END_SRC
+
+* Configure VirtualHost file for the newly cloned project:
+** script:
+#+BEGIN_SRC bash :tangle ls-up-script.sh
+
+laravel_dir="/var/www/$dir_name"  # we are putting this whole path in a variable for easier reference
+
+# Store the IP address of the Lightsail instance in a variable
+read -p "Enter the IP address of your instance:" ip_addr
+echo "$ip_addr <- This ip address will be used as a ServerName parameter in the VirtualHost file"
+
+# Create a new virtual host configuration file for Laravel
+cat <<EOF | sudo tee "/etc/apache2/sites-available/$dir_name.conf"
+<VirtualHost *:80>
+    ServerAdmin admin@$dir_name.com
+    ServerName $ip_addr
+    DocumentRoot $laravel_dir/public
+
+    <Directory $laravel_dir/public>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    ErrorLog \${APACHE_LOG_DIR}/$domain_name-error.log
+    CustomLog \${APACHE_LOG_DIR}/$domain_name-access.log combined
+</VirtualHost>
+EOF
+
+# Disable the default virtual host
+sudo a2dissite 000-default.conf
+
+# Enable the new virtual host
+sudo a2ensite "$dir_name.conf"
+
+#+END_SRC
+
+* Enable necessary modules to serve the project:
+** script:
+#+BEGIN_SRC bash :tangle ls-up-script.sh
+
+echo "Enabling rewrite module and restarting Apache2.."
+sudo a2enmod php8.2
+sudo a2enmod rewrite
+sudo systemctl restart apache2
+
+echo "Checking installed packages versions..:"
+php -v
+apache2 -v
+composer --version
+
+echo "My work here is done.. And don't forget to modify the .env files manually, I didn't do that.."
+echo "After configuring your .env file, you may visit your app at http://$ip_addr"
+
+#+END_SRC
+
+* Manually configuring your .env file in your project:
+** The first important thing to modify is the DB host, DB name, user, password, etc.
+** If you are using AWS S3 Bucket, you can add the access key, bucket name, region, etc.
+** If you are using frontend framework, you must also specify SANCTUM_STATEFUL_DOMAINS for the API endpoint.
+** Also modify the APP_URL if you are relying on that for any references in your code.
