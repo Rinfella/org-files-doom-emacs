@@ -42,11 +42,16 @@ read -p "Enter the name of the project directory: " dir_name
 # Check if the directory already exists
 if [ -d "/var/www/$dir_name" ]; then
     echo "Directory already exists. Aborting."
-    exit 1
+else
+    # Create the directory in /var/www/ as root user
+    sudo mkdir -p "/var/www/$dir_name"
+    if [ $? -eq 0 ]; then
+        echo "Directory $dir_name created successfully/.."
+    else
+        echo "Failed to create directory $dir_name. Aborting..."
+        exit 1
+    fi
 fi
-
-# Create the directory in /var/www/ as root user
-sudo mkdir -p "/var/www/$dir_name"
 
 # Change ownership of the directory to your user
 # sudo chown -R $USER:$USER "/var/www/$dir_name"
