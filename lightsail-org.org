@@ -10,7 +10,7 @@
 
 #!/bin/bash
 
-sudo apt update -y
+sudo apt update && sudo apt upgrade -y
 
 echo "Installing Apache2.."
 sudo apt install apache2 software-properties-common -y
