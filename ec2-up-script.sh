@@ -10,29 +10,26 @@ wget -O - https://repo.litespeed.sh | sudo bash
 
 echo "Installing LiteSpeed, LSPHP and certbot.."
 apt update
-apt install openlitespeed certbot lsphp82 lsphp82-{common,curl,mysql}
+apt install openlitespeed certbot lsphp81 lsphp81-{common,curl,mysql}
 
-# Creating www directory
-cd "/usr/local/lsws"
-mkdir "www"
-cd "www"
-echo "www directory created at $PWD"
+# Creating www directory adn removing default directory 'Example'
+mkdir -p /usr/local/lsws/www
 
-read -p "Enter the name of your project directory: " dir_name
+rm -r /usr/local/lsws/Example
 
-mkdir   "$dir_name"
-cd      "$dir_name"
+project_path="/usr/local/lsws/www"
 
 read -p "Enter the URL of the project repository: " repo_url
 echo "Cloning the repository.. $repo_url"
-git clone "$repo_url" .
-echo "Repository cloned into $PWD"
+git clone "$repo_url $project_path"
+echo "Repository cloned into $project_path"
 
 # Installing Composer
+cd "$project_path"
 echo "Installing Composer.."
-/usr/local/lsws/lsphp81/bin/php8.2 -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
-/usr/local/lsws/lsphp81/bin/php8.2 composer-setup.php
-/usr/local/lsws/lsphp81/bin/php8.2 composer.phar install
+/usr/local/lsws/lsphp81/bin/php8.1 -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+/usr/local/lsws/lsphp81/bin/php8.1 composer-setup.php
+/usr/local/lsws/lsphp81/bin/php8.1 composer.phar install
 
 # Copying the env example file
 cp .env.example .env
@@ -42,7 +39,8 @@ cp .env.example .env
 /usr/local/lsws/lsphp81/bin/php8.1 artisan storage:link
 
 # Set storage permission to ALL
-chmod -R 777 storage/
+chown -R root:www-data storage/ bootstrap/cache
+chmod -R 777 storage/ bootstrap/cache
 systemctl enable lsws
 systemctl restart lsws
 
