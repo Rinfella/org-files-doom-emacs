@@ -11,9 +11,6 @@
 
 #!/bin/bash
 
-# Enter root mode
-sudo su
-
 # Installing OpenLiteSpeed, Certbot and LSPHP
 apt update
 echo "Adding LiteSpeed repository to apt.."
@@ -57,11 +54,19 @@ echo "Repository cloned into $project_path"
 # Installing Composer
 cd "$project_path"
 echo "Installing Composer.."
+version = grep "php\":" composer.json | sed  -e 's/[[:space:]]//g' | sed  -n 's/"php":"^\([0-9]\)\..*/\1/p'
+
+
 /usr/local/lsws/lsphp81/bin/php8.1 -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
 /usr/local/lsws/lsphp81/bin/php8.1 composer-setup.php
-/usr/local/lsws/lsphp81/bin/php8.1 composer.phar install
 
+if ["$version" -eq 8]; then
+    /usr/local/lsws/lsphp81/bin/php8.1 composer.phar install
+else
+    /usr/local/lsws/lsphp74/bin/php7.4 composer.phar install
+fi
 #+END_SRC
+
 
 ** Generating keys, copying .env files, linking storage and giving permissions to storage folders:
 
@@ -75,7 +80,7 @@ cp .env.example .env
 /usr/local/lsws/lsphp81/bin/php8.1 artisan storage:link
 
 # Set storage permission to ALL
-chown -R www-data:www-data storage/ bootstrap/cache
+chown -R root:www-data storage/ bootstrap/cache
 chmod -R 777 storage/ bootstrap/cache
 systemctl enable lsws
 systemctl restart lsws
