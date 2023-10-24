@@ -42,7 +42,7 @@ project_path="/usr/local/lsws/www"
 
 read -p "Enter the URL of the project repository: " repo_url
 echo "Cloning the repository.. $repo_url"
-git clone "$repo_url $project_path"
+git clone "$repo_url" $project_path
 echo "Repository cloned into $project_path"
 
 #+END_SRC
@@ -54,13 +54,12 @@ echo "Repository cloned into $project_path"
 # Installing Composer
 cd "$project_path"
 echo "Installing Composer.."
-version = grep "php\":" composer.json | sed  -e 's/[[:space:]]//g' | sed  -n 's/"php":"^\([0-9]\)\..*/\1/p'
-
+version=$(grep "php\":" composer.json | sed  -e 's/[[:space:]]//g' | sed  -n 's/"php":"^\([0-9]\)\..*/\1/p')
 
 /usr/local/lsws/lsphp81/bin/php8.1 -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
 /usr/local/lsws/lsphp81/bin/php8.1 composer-setup.php
 
-if ["$version" -eq 8]; then
+if [ "$version" == "8" ]; then
     /usr/local/lsws/lsphp81/bin/php8.1 composer.phar install
 else
     /usr/local/lsws/lsphp74/bin/php7.4 composer.phar install
@@ -90,7 +89,7 @@ systemctl restart lsws
 
 echo "OpenLiteSpeed server configurations has finished."
 echo "Don't forget to configure the .env file manually and set LiteSpeed dashboard admin password."
-echo "You can now start configuring the LiteSpeed dashboard on via the browser.."
+echo "You can now start configuring the LiteSpeed dashboard on via the browser..https://your_ip:7080"
 
 #+END_SRC
 
@@ -102,7 +101,7 @@ echo "You can now start configuring the LiteSpeed dashboard on via the browser..
 * Configuring LiteSpeed on the GUI dashboard:
 ** In order to configure LiteSpeed from the dashboard, we need to open a port (7080) in the EC2 instance.
 ** Only SSH port is open by default, so you may want to open port 80, 443 and 7080 for the instance.
-** After opening the ports, now you can enter the Litespeed Dashboard by entering https://<ip_addr_of_instance>:7080.
+** After opening the ports, now you can enter the Litespeed Dashboard by entering https://ip_addr_of_instance:7080.
 ** We have set the admin password for the Dashboard before, use that credentials to log into LiteSpeed Admin Dashbord.
 ** After that, go to the Virtual Host tab and delete the Example virtualhost, then create a new one.
 ** When creating a virtualhost file, you can refer to the following parameters:
@@ -112,18 +111,18 @@ echo "You can now start configuring the LiteSpeed dashboard on via the browser..
 *** Enable Scripts: Yes
 *** Restrained: Yes
 *** Document Root: $VH_ROOT/public
-*** Domain Name: enter IP address or actual domain name
+*** Domain Name: enter IP address or actual domain name (use * as a wildcard if you wish to)
 *** Enable GZIP compression: Yes
 *** Use server Index files: No
 *** Index files: index.php
 *** Auto index: No
 *** Rewrite: yes
 *** Autoload .htaccess: Yes
-*** Also you must enable the script handler to use the server level script (LSAPI) to run php82 script.
+*** Also you must enable the script handler to use the server level script (LSAPI) to run php8.1 or php7.4 script.
 
 ** Create two listeners from the listeners tab and specify the ports for http and ssl, ports 80 and 443 respectively.
-** under the listeners, you can add a listener and add for each http and ssl listener, and also specify the domain name or IP address if ti does not have a domain name yet.
-** Finally, restart the LiteSpeed server and now you must be able to access your web app on http://<instance_ip_or_domain_name>.
+** under the listeners, you can add a listener and add for each http and ssl listener, and also specify the domain name or IP address if it does not have a domain name yet.
+** Finally, restart the LiteSpeed server and now you must be able to access your web app on http://instance_ip_or_domain_name.
 ** To access your website via HTTPS protcol, buy a domain name and map your IP with the domain name in your DNS.
 ** Then, you can generate SSL Certificate for your domain using Cerbot we installed earlier.
 ** The general syntax of generating SSL Certificate using Certbot is:
@@ -134,5 +133,4 @@ echo "You can now start configuring the LiteSpeed dashboard on via the browser..
 ** After successfully generating the SSL certificate, you must copy the path where the certificate is stored in the server. It will look something like this:
 *** ~/etc/letsencrypt/live/mydomain.com/privkey.pem~ AND ~/etc/letsencrypt/live/mydomain.com/fullchain.pem~
 ** Copy the path (excluding the tilde '~') and paste it in the SSL tab of the SSL listener.
-** Paste the privkey.pem to the private key field and fullchain.pem file to the certificate field and also check the Chained Certificate box 'Yes'.
 ** Reload the LiteSpeed Server and now you can access the website you served via https://mydomain.com

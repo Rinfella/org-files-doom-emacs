@@ -80,8 +80,7 @@ sudo mkdir -p "/var/www/$dir_name"
 # sudo chown -R $USER:$USER "/var/www/$dir_name"
 
 # Change into the new directory
-cd "/var/www/$dir_name"
-
+cd /var/www/$dir_name
 
 #+END_SRC
 
@@ -93,7 +92,7 @@ cd "/var/www/$dir_name"
 read -p "Enter the URL of the project Git repository: " repo_url
 
 # Clone the repository
-git clone "$repo_url" .
+git clone "$repo_url" /var/www/$dir_name
 
 echo "Repository cloned into /var/www/$dir_name"
 
@@ -108,7 +107,8 @@ echo "Linking storage.."
 php artisan storage:link
 
 echo "Giving permissions to the storage folder.."
-chmod -R 777 storage/
+chown -R root:www-data storage/ bootstrap/cache
+chmod -R 777 storage/ bootstrap/cache
 
 #+END_SRC
 

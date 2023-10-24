@@ -42,28 +42,23 @@ read -p "Enter the name of the project directory: " dir_name
 # Check if the directory already exists
 if [ -d "/var/www/$dir_name" ]; then
     echo "Directory already exists. Aborting."
-else
-    # Create the directory in /var/www/ as root user
-    sudo mkdir -p "/var/www/$dir_name"
-    if [ $? -eq 0 ]; then
-        echo "Directory $dir_name created successfully/.."
-    else
-        echo "Failed to create directory $dir_name. Aborting..."
-        exit 1
-    fi
+    exit 1
 fi
+
+# Create the directory in /var/www/ as root user
+sudo mkdir -p "/var/www/$dir_name"
 
 # Change ownership of the directory to your user
 # sudo chown -R $USER:$USER "/var/www/$dir_name"
 
 # Change into the new directory
-cd "/var/www/$dir_name"
+cd /var/www/$dir_name
 
 # Get the repository URL from user input
 read -p "Enter the URL of the project Git repository: " repo_url
 
 # Clone the repository
-git clone "$repo_url" .
+git clone "$repo_url" /var/www/$dir_name
 
 echo "Repository cloned into /var/www/$dir_name"
 
@@ -78,7 +73,8 @@ echo "Linking storage.."
 php artisan storage:link
 
 echo "Giving permissions to the storage folder.."
-chmod -R 777 storage/
+chown -R root:www-data storage/ bootstrap/cache
+chmod -R 777 storage/ bootstrap/cache
 
 laravel_dir="/var/www/$dir_name"  # we are putting this whole path in a variable for easier reference
 

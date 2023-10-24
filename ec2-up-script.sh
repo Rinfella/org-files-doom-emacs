@@ -18,19 +18,18 @@ project_path="/usr/local/lsws/www"
 
 read -p "Enter the URL of the project repository: " repo_url
 echo "Cloning the repository.. $repo_url"
-git clone "$repo_url $project_path"
+git clone "$repo_url" $project_path
 echo "Repository cloned into $project_path"
 
 # Installing Composer
 cd "$project_path"
 echo "Installing Composer.."
-version = grep "php\":" composer.json | sed  -e 's/[[:space:]]//g' | sed  -n 's/"php":"^\([0-9]\)\..*/\1/p'
-
+version=$(grep "php\":" composer.json | sed  -e 's/[[:space:]]//g' | sed  -n 's/"php":"^\([0-9]\)\..*/\1/p')
 
 /usr/local/lsws/lsphp81/bin/php8.1 -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
 /usr/local/lsws/lsphp81/bin/php8.1 composer-setup.php
 
-if ["$version" -eq 8]; then
+if [ "$version" == "8" ]; then
     /usr/local/lsws/lsphp81/bin/php8.1 composer.phar install
 else
     /usr/local/lsws/lsphp74/bin/php7.4 composer.phar install
@@ -54,4 +53,4 @@ systemctl restart lsws
 
 echo "OpenLiteSpeed server configurations has finished."
 echo "Don't forget to configure the .env file manually and set LiteSpeed dashboard admin password."
-echo "You can now start configuring the LiteSpeed dashboard on via the browser.."
+echo "You can now start configuring the LiteSpeed dashboard on via the browser..https://your_ip:7080"
