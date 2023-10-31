@@ -42,6 +42,9 @@ cp .env.example .env
 /usr/local/lsws/lsphp81/bin/php8.1 artisan key:generate
 /usr/local/lsws/lsphp81/bin/php8.1 artisan storage:link
 
+ln -s /usr/local/lsws/lsphp81/bin/php8.1  /usr/local/bin/php81
+ln -s /usr/local//lsws/lsphp74/bin/php7.4  /usr/local/bin/php74
+
 # Set storage permission to ALL
 chown -R root:www-data storage/ bootstrap/cache
 chmod -R 777 storage/ bootstrap/cache
