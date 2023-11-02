@@ -1,9 +1,5 @@
 #!/bin/bash
 
-dir_name = $1
-domain_name = $2
-repo_url = $3
-
 sudo apt update && sudo apt upgrade -y
 
 echo "Installing Apache2.."
@@ -41,7 +37,7 @@ echo "Finished installing PHP 8.2 and Composer.. Done!"
 #Creating a project directory under /var/www
 # Get the directory name from user input
 
-# read -p "Enter the name of the project directory: " dir_name
+read -p "Enter the name of the project directory: " dir_name
 
 # Check if the directory already exists
 if [ -d "/var/www/$dir_name" ]; then
@@ -56,7 +52,7 @@ sudo mkdir -p "/var/www/$dir_name"
 # sudo chown -R $USER:$USER "/var/www/$dir_name"
 
 # Get the repository URL from user input
-# read -p "Enter the URL of the project Git repository: " repo_url
+read -p "Enter the URL of the project Git repository: " repo_url
 
 # Clone the repository
 git clone "$repo_url" /var/www/$dir_name
@@ -80,14 +76,14 @@ chmod -R 777 storage/ bootstrap/cache
 laravel_dir="/var/www/$dir_name"  # we are putting this whole path in a variable for easier reference
 
 # Store the IP address of the Lightsail instance in a variable
-# read -p "Enter the IP address of your instance:" ip_addr
-#echo "$ip_addr <- This ip address will be used as a ServerName parameter in the VirtualHost file"
+read -p "Enter the IP address of your instance:" ip_addr
+echo "$ip_addr <- This ip address will be used as a ServerName parameter in the VirtualHost file"
 
 # Create a new virtual host configuration file for Laravel
 cat <<EOF | sudo tee "/etc/apache2/sites-available/$dir_name.conf"
 <VirtualHost *:80>
-    ServerAdmin admin@$domain_name
-    ServerName $domain_name
+    ServerAdmin admin@$dir_name.com
+    ServerName $ip_addr
     DocumentRoot $laravel_dir/public
 
     <Directory $laravel_dir/public>
@@ -96,8 +92,8 @@ cat <<EOF | sudo tee "/etc/apache2/sites-available/$dir_name.conf"
         Require all granted
     </Directory>
 
-    ErrorLog \${APACHE_LOG_DIR}/$dir_name-error.log
-    CustomLog \${APACHE_LOG_DIR}/$dir_name-access.log combined
+    ErrorLog \${APACHE_LOG_DIR}/$domain_name-error.log
+    CustomLog \${APACHE_LOG_DIR}/$domain_name-access.log combined
 </VirtualHost>
 EOF
 
@@ -118,4 +114,4 @@ apache2 -v
 composer --version
 
 echo "My work here is done.. And don't forget to modify the .env files manually, I didn't do that.."
-echo "After configuring your .env file, you may visit your app at http://$domain_name"
+echo "After configuring your .env file, you may visit your app at http://$ip_addr"
